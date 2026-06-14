@@ -21,16 +21,31 @@ webrtcAddress: :8889          # no searxng clash on the Pi -> default port
 paths:
   cam:
     # Native Pi camera source: libcamera + the Pi hardware H.264 encoder.
+    #
+    # IMPORTANT: the Pi's H.264 encoder is capped at 1920x1080. The IMX477's
+    # big sensor modes (4056x3040, 2028x1520, 2028x1080) get downscaled to
+    # <=1080p before encoding -- you cannot STREAM above 1080p. For the full
+    # 4056x3040 sensor resolution use the still path (rpi/snapshot.sh or
+    # GET /api/snapshot), which skips the H.264 encoder.
+    #
+    # At 1080p the IMX477 uses its 2028x1520 binned sensor mode (full field of
+    # view, good low light), then downscales to 1920x1080.
     source: rpiCamera
     rpiCameraCamID: 0
-    rpiCameraWidth: 1280
-    rpiCameraHeight: 720
-    rpiCameraFPS: 30
-    rpiCameraBitrate: 3000000
+    rpiCameraWidth: 1920
+    rpiCameraHeight: 1080
+    rpiCameraFPS: 30           # solid on Zero 2 W wifi. Try 50, see note below.
+    rpiCameraBitrate: 6000000  # ~6 Mbps for 1080p30
     # H.264 baseline so browsers can decode the WebRTC/HLS feed directly:
     rpiCameraProfile: baseline
-    rpiCameraLevel: '4.0'
+    rpiCameraLevel: '4.2'      # 4.2 allows 1080p up to 60 fps
     rpiCameraIDRPeriod: 30
     # Flip here if the camera is mounted upside down (set both true = 180):
     rpiCameraHFlip: false
     rpiCameraVFlip: false
+    #
+    # Higher frame-rate options (encoder handles them; the Zero 2 W's 2.4GHz
+    # wifi is the real limit -- 1080p50 needs ~9 Mbps, test before relying):
+    #   1080p50:  FPS 50,  Bitrate 9000000    (sensor mode 2028x1080)
+    #   720p60:   Width 1280 Height 720 FPS 60 Bitrate 6000000
+    #   highFR:   Width 1332 Height 990 FPS 120 (1332x990 sensor mode, niche)

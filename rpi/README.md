@@ -47,12 +47,35 @@ venv with `bleak`+`aiohttp`, and enables two systemd services
 - **Raw RTSP:** `rtsp://<pi-ip>:8554/cam` (VLC/Jellyfin/Frigate)
 - Status: `systemctl status mediamtx gimbal-web --no-pager`
 
-## 4. Tuning
+## 4. Resolution — what's actually possible
+The Pi's **hardware H.264 encoder is capped at 1920×1080**, so the live stream
+tops out at 1080p regardless of the IMX477's bigger sensor modes:
+
+| Mode | Live H.264 stream? | Notes |
+|------|--------------------|-------|
+| 4056×3040 (12 MP full) | ❌ stills only | use `rpi/snapshot.sh` |
+| 2028×1520 / 2028×1080  | ⚠️ downscaled to ≤1080p | these are *sensor* modes feeding the 1080p output |
+| 1920×1080p30 | ✅ default | ~6 Mbps, solid on the Zero 2 W |
+| 1920×1080p50 | ✅ encoder-OK | ~9 Mbps — **wifi-limited**, test it |
+| 1280×720p60  | ✅ | smoother, lighter |
+| 1332×990p120 | ✅ encoder-OK | niche; wifi can't carry 120 fps |
+
+Edit the `rpiCamera*` values in `rpi/mediamtx.yml`, then
+`sudo systemctl restart mediamtx`. The reason to stay at 1080p isn't the
+encoder alone — the Zero 2 W's single-chip 2.4 GHz wifi (shared with the BT
+gimbal link) is the real bottleneck above ~9 Mbps.
+
+### Full 4056×3040 stills
+The camera can only be opened by one process, so a full-res photo briefly
+takes over from the stream:
+```bash
+rpi/snapshot.sh                 # ~2-3s gap in the live feed, then a 12 MP jpg
+```
+
+## 5. Tuning
 - **Upside-down mount:** set `rpiCameraVFlip: true` (and/or `HFlip`) in
   `rpi/mediamtx.yml`, then `sudo systemctl restart mediamtx`. (Done at the
   source now, so the control page no longer needs the CSS flip.)
-- **Resolution/bitrate:** the Zero 2 W is happiest at 720p30 ~3 Mbps (default).
-  720p is a good ceiling; 1080p30 may strain CPU/wifi on the Zero 2 W.
 - **Gimbal address:** same WG2X as before (`24:0A:C4:9B:61:EE` in `server.py`).
 
 ## Shared code (from repo root, unchanged)
