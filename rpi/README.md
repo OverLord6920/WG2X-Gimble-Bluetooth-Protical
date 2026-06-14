@@ -40,6 +40,10 @@ cable routing, payload, lens).
   rpicam-hello --list-cameras      # should list imx477
   rpicam-jpeg -o test.jpg          # grabs a frame
   ```
+  > Trixie note: MediaMTX's `rpiCamera` loads the system **libcamera** at
+  > runtime, so it must match the OS. `install.sh` pulls MediaMTX `latest`,
+  > which tracks current libcamera. If MediaMTX logs a libcamera/`rpiCamera`
+  > load error, update both (`apt full-upgrade`) and re-run the installer.
 - **Auto IR-Cut:** the "Auto" board switches its IR-cut filter via an onboard
   light sensor — no software needed. (If yours is the GPIO-switched variant,
   it exposes a control pin; tell me and we'll add a small GPIO toggle service.)
@@ -48,14 +52,30 @@ cable routing, payload, lens).
   competes with the (wired) video stream.
 
 ## 2. Install everything
+
+**Fresh Pi — one command** (installs git, clones this repo's `rpi` branch, runs
+the installer):
 ```bash
-git clone https://github.com/OverLord6920/WG2X-Gimble-Bluetooth-Protical.git feiyu-gimbal
-cd feiyu-gimbal && git checkout rpi
+curl -fsSL https://raw.githubusercontent.com/OverLord6920/WG2X-Gimble-Bluetooth-Protical/rpi/rpi/bootstrap.sh | bash
+```
+
+**Or manually**, if you'd rather clone yourself:
+```bash
+git clone -b rpi https://github.com/OverLord6920/WG2X-Gimble-Bluetooth-Protical.git feiyu-gimbal
+cd feiyu-gimbal
 bash rpi/install.sh
 ```
-The script installs `rpicam-apps`, the arch-matched MediaMTX binary, a Python
-venv with `bleak`+`aiohttp`, and enables two systemd services
-(`mediamtx`, `gimbal-web`). It rewrites the unit paths to wherever you cloned.
+
+Either way, `install.sh` (idempotent — safe to re-run) does:
+1. apt deps (`git`, `rpicam-apps`, `ffmpeg`, `bluez`, python venv tools)
+2. arch-matched **MediaMTX** binary → `/usr/local/bin`
+3. Python **venv** with `bleak` + `aiohttp`, and makes the `rpi/*.sh` executable
+4. systemd services **`mediamtx`** + **`gimbal-web`** (paths rewritten to your
+   clone location), enabled + started
+5. NOPASSWD **sudoers** for the full-res snapshot
+6. prints the stream + control URLs
+
+Then add the kiosk autostart (§3a) for the touchscreen.
 
 ## 3. Use it
 - **Camera + D-pad (any browser):** `http://<pi-ip>:8095/`  (auto-points feed at the Pi)
@@ -71,8 +91,9 @@ venv with `bleak`+`aiohttp`, and enables two systemd services
 - **Edge arrows** — fixed-speed ↑↓←→ pinned to the four edges.
 
 ```bash
-sudo apt-get install -y chromium-browser
-chmod +x rpi/kiosk.sh
+# RPi OS calls it chromium-browser; plain Debian calls it chromium
+sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+chmod +x rpi/kiosk.sh   # (install.sh already does this)
 ```
 
 ### Option A — Desktop image (labwc, default; simplest)
