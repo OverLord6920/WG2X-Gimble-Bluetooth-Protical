@@ -19,7 +19,15 @@ cable routing, payload, lens).
 ```
 
 ## 1. OS + camera
-- Flash **Raspberry Pi OS Bookworm (64-bit, Lite)**; enable SSH. Use **wired
+- Flash **Raspberry Pi OS Trixie, 64-bit** (Debian 13, current; always 64-bit
+  on a Pi 4 for arm64 MediaMTX + better perf). Which variant depends on the
+  touchscreen:
+  - **With the DSI kiosk (this build): use the _Desktop_ image.** "Lite" has no
+    GUI, so Chromium can't run. Desktop ships Chromium + the labwc (Wayland)
+    compositor; the kiosk autostart (§3a) drops right in.
+  - Headless (control only from phones/PCs): **Lite** is perfect.
+  - Minimal touchscreen appliance: **Lite + `cage`** (see §3a option B).
+- Enable SSH. Use **wired
   Ethernet** for the stream (no wifi/BT contention; the Pi 4 has separate
   radios anyway, so onboard Bluetooth for the gimbal is unaffected).
 - The IMX477 needs its overlay. Edit `/boot/firmware/config.txt`:
@@ -62,21 +70,27 @@ venv with `bleak`+`aiohttp`, and enables two systemd services
   distance from the touch point = speed (a virtual joystick). Release = stop.
 - **Edge arrows** — fixed-speed ↑↓←→ pinned to the four edges.
 
-Setup:
 ```bash
 sudo apt-get install -y chromium-browser
 chmod +x rpi/kiosk.sh
-rpi/kiosk.sh            # test it from the desktop first
 ```
-Autostart on boot — pick the one matching your session:
-- **Bookworm (labwc, default):** add to `~/.config/labwc/autostart`:
-  ```
-  /home/<user>/feiyu-gimbal/rpi/kiosk.sh &
-  ```
-- **Wayfire:** in `~/.config/wayfire.ini` under `[autostart]`:
-  ```
-  kiosk = /home/<user>/feiyu-gimbal/rpi/kiosk.sh
-  ```
+
+### Option A — Desktop image (labwc, default; simplest)
+Test from the desktop: `rpi/kiosk.sh`. Then autostart on boot by adding to
+`~/.config/labwc/autostart`:
+```
+/home/<user>/feiyu-gimbal/rpi/kiosk.sh &
+```
+
+### Option B — Lite image + cage (minimal appliance)
+`cage` is a one-app Wayland kiosk compositor — no desktop needed.
+```bash
+sudo apt-get install -y cage
+sudo cp rpi/kiosk.service /etc/systemd/system/    # edit User/paths if not 'pi'
+sudo systemctl enable --now kiosk
+```
+The service runs `cage -- rpi/kiosk.sh` on tty1 at boot.
+
 Notes:
 - The DSI touchscreen is usually auto-detected. To rotate, set `display_rotate`
   (or the Screen Configuration tool) — rotate the *display*, touch follows.

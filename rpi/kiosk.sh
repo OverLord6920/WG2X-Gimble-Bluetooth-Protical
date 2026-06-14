@@ -12,6 +12,7 @@ xset s off -dpms 2>/dev/null || true
 # --app gives a chromeless window; --kiosk makes it fullscreen.
 exec chromium-browser \
   --kiosk --app="$URL" \
+  --ozone-platform-hint=auto \
   --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
   --autoplay-policy=no-user-gesture-required \
   --check-for-update-interval=31536000 \
