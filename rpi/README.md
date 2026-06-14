@@ -50,9 +50,38 @@ venv with `bleak`+`aiohttp`, and enables two systemd services
 (`mediamtx`, `gimbal-web`). It rewrites the unit paths to wherever you cloned.
 
 ## 3. Use it
-- **Camera + D-pad:** `http://<pi-ip>:8095/`  (page auto-points the feed at the Pi)
+- **Camera + D-pad (any browser):** `http://<pi-ip>:8095/`  (auto-points feed at the Pi)
+- **Local touchscreen kiosk:** `http://<pi-ip>:8095/web/kiosk.html` (see §3a)
 - **Raw RTSP:** `rtsp://<pi-ip>:8554/cam` (VLC/Jellyfin/Frigate)
 - Status: `systemctl status mediamtx gimbal-web --no-pager`
+
+## 3a. Touchscreen kiosk (DSI display)
+`web/kiosk.html` is a full-screen touch UI for the Pi's own DSI display, with
+**two control modes at once**:
+- **Drag-to-move** — touch anywhere on the video and drag; direction = pan/tilt,
+  distance from the touch point = speed (a virtual joystick). Release = stop.
+- **Edge arrows** — fixed-speed ↑↓←→ pinned to the four edges.
+
+Setup:
+```bash
+sudo apt-get install -y chromium-browser
+chmod +x rpi/kiosk.sh
+rpi/kiosk.sh            # test it from the desktop first
+```
+Autostart on boot — pick the one matching your session:
+- **Bookworm (labwc, default):** add to `~/.config/labwc/autostart`:
+  ```
+  /home/<user>/feiyu-gimbal/rpi/kiosk.sh &
+  ```
+- **Wayfire:** in `~/.config/wayfire.ini` under `[autostart]`:
+  ```
+  kiosk = /home/<user>/feiyu-gimbal/rpi/kiosk.sh
+  ```
+Notes:
+- The DSI touchscreen is usually auto-detected. To rotate, set `display_rotate`
+  (or the Screen Configuration tool) — rotate the *display*, touch follows.
+- The kiosk talks to the same `gimbal-web` service, so it works whether you
+  drive from the touchscreen or a phone on the LAN (last input wins).
 
 ## 4. Resolution — what's actually possible
 The Pi's **hardware H.264 encoder is capped at 1920×1080**, so the live stream

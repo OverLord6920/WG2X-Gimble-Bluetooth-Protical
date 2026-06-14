@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gimbal Kiosk</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+            font-family:system-ui,sans-serif;color:#fff;
+            -webkit-user-select:none;user-select:none;cursor:none}
+  #feed{position:fixed;inset:0;width:100%;height:100%;border:0;
+        pointer-events:none}                 /* video below the touch layer */
+  #touch{position:fixed;inset:0;touch-action:none}  /* drag-joystick zone */
+
+  /* edge arrows (large touch targets, out of the drag center) */
+  .arrow{position:fixed;display:flex;align-items:center;justify-content:center;
+         width:84px;height:84px;font-size:2.4rem;line-height:1;
+         background:rgba(20,22,28,.45);border-radius:18px;
+         backdrop-filter:blur(2px);touch-action:none}
+  .arrow.on{background:rgba(45,140,255,.85)}
+  #up{top:14px;left:50%;transform:translateX(-50%)}
+  #down{bottom:14px;left:50%;transform:translateX(-50%)}
+  #left{left:14px;top:50%;transform:translateY(-50%)}
+  #right{right:14px;top:50%;transform:translateY(-50%)}
+
+  /* drag vector indicator */
+  #stick{position:fixed;width:26px;height:26px;border-radius:50%;
+         background:rgba(45,140,255,.9);box-shadow:0 0 0 3px rgba(255,255,255,.4);
+         pointer-events:none;display:none;transform:translate(-50%,-50%)}
+  #hud{position:fixed;left:10px;bottom:10px;font-size:.8rem;
+       background:rgba(0,0,0,.4);padding:3px 8px;border-radius:8px}
+  #hud .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+            background:#c33;margin-right:5px}
+  #hud .dot.ok{background:#3c3}
+</style>
+</head>
+<body>
+  <iframe id="feed" allow="autoplay"></iframe>
+  <div id="touch"></div>
+
+  <div class="arrow" id="up">↑</div>
+  <div class="arrow" id="down">↓</div>
+  <div class="arrow" id="left">←</div>
+  <div class="arrow" id="right">→</div>
+
+  <div id="stick"></div>
+  <div id="hud"><span class="dot" id="dot"></span><span id="msg">…</span></div>
+
+<script>
+// --- config ---
+const STREAM_PORT = 8889, STREAM_PATH = 'cam';
+const MAX = 200;            // gimbal velocity range
+const DEADZONE = 18;        // px before drag registers
+const FULLSCALE = 160;      // px of drag = full speed
+const ARROW_SPEED = 130;    // fixed speed for edge arrows
+
+document.getElementById('feed').src =
+  `${location.protocol}//${location.hostname}:${STREAM_PORT}/${STREAM_PATH}`;
+
+let last = 0;
+async function vel(pan, tilt){            // throttled to ~25 Hz
+  const now = performance.now();
+  if (now - last < 40 && (pan||tilt)) return;
+  last = now;
+  try{ await fetch('/api/vel',{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({pan:Math.round(pan),tilt:Math.round(tilt)})}); }catch(e){}
+}
+const stop = () => vel(0,0);
+const clamp = v => Math.max(-MAX, Math.min(MAX, v));
+
+// --- drag joystick on the video ---
+const touch = document.getElementById('touch'), stick = document.getElementById('stick');
+let ox=0, oy=0, dragging=false;
+touch.addEventListener('pointerdown', e => {
+  dragging=true; ox=e.clientX; oy=e.clientY;
+  stick.style.display='block'; stick.style.left=ox+'px'; stick.style.top=oy+'px';
+  touch.setPointerCapture(e.pointerId);
+});
+touch.addEventListener('pointermove', e => {
+  if(!dragging) return;
+  let dx=e.clientX-ox, dy=e.clientY-oy;
+  stick.style.left=e.clientX+'px'; stick.style.top=e.clientY+'px';
+  const mag=Math.hypot(dx,dy);
+  if(mag<DEADZONE){ stop(); return; }
+  const pan  = clamp(dx/FULLSCALE*MAX);
+  const tilt = clamp(-dy/FULLSCALE*MAX);    // up on screen = tilt up
+  vel(pan,tilt);
+});
+function endDrag(){ dragging=false; stick.style.display='none'; stop(); }
+touch.addEventListener('pointerup', endDrag);
+touch.addEventListener('pointercancel', endDrag);
+touch.addEventListener('pointerleave', endDrag);
+
+// --- edge arrows ---
+const arrows = {up:[0,ARROW_SPEED], down:[0,-ARROW_SPEED],
+                left:[-ARROW_SPEED,0], right:[ARROW_SPEED,0]};
+for(const id in arrows){
+  const el=document.getElementById(id), [p,t]=arrows[id];
+  const go=e=>{ e.preventDefault(); el.classList.add('on'); vel(p,t); };
+  const end=()=>{ el.classList.remove('on'); stop(); };
+  el.addEventListener('pointerdown',go);
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',end);
+  el.addEventListener('pointerleave',end);
+}
+
+// --- status ---
+setInterval(async()=>{
+  try{ const s=await(await fetch('/api/status')).json();
+    document.getElementById('dot').classList.toggle('ok',s.connected);
+    document.getElementById('msg').textContent =
+      s.connected?`pan ${s.pan}  tilt ${s.tilt}`:'gimbal disconnected';
+  }catch(e){ document.getElementById('msg').textContent='server down'; }
+},1000);
+</script>
+</body>
+</html>
