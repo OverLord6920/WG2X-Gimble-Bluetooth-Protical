@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akaso Live + Gimbal</title>
+<style>
+  :root { --accent:#2d8cff; }
+  body{margin:0;background:#0d0d0f;color:#eee;font-family:system-ui,sans-serif;text-align:center}
+  h1{font-weight:500;padding:.5em;margin:0;font-size:1.1rem}
+  .feed{width:100%;max-width:900px;aspect-ratio:16/9;border:0;background:#000;margin:auto;display:block}
+  .pad{display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(3,72px);
+       gap:8px;justify-content:center;margin:18px auto}
+  .pad button{font-size:1.6rem;border:0;border-radius:14px;background:#1c1d22;color:#eee;
+       user-select:none;-webkit-user-select:none;touch-action:none;cursor:pointer;transition:.05s}
+  .pad button:active,.pad button.on{background:var(--accent);transform:scale(.94)}
+  .center{background:#33141a !important;font-size:1rem !important}
+  .speed{max-width:320px;margin:0 auto;display:flex;gap:10px;align-items:center;padding:0 1em}
+  input[type=range]{flex:1}
+  .status{font-size:.8rem;opacity:.7;padding:.6em}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#c33;margin-right:5px}
+  .dot.ok{background:#3c3}
+</style>
+</head>
+<body>
+  <h1>Akaso Live + Gimbal Control</h1>
+
+  <!-- MediaMTX WebRTC reader (low latency). Swap to :8888/web for HLS. -->
+  <iframe class="feed" src="http://10.0.0.7:8899/web" allow="autoplay"></iframe>
+
+  <div class="speed">
+    <span>Speed</span>
+    <input id="spd" type="range" min="40" max="200" value="120">
+    <span id="spdv">120</span>
+  </div>
+
+  <!-- D-pad: data-pan / data-tilt are unit directions, scaled by speed -->
+  <div class="pad">
+    <button data-pan="-1" data-tilt="1">↖</button>
+    <button data-pan="0"  data-tilt="1">↑</button>
+    <button data-pan="1"  data-tilt="1">↗</button>
+    <button data-pan="-1" data-tilt="0">←</button>
+    <button class="center" data-stop>■</button>
+    <button data-pan="1"  data-tilt="0">→</button>
+    <button data-pan="-1" data-tilt="-1">↙</button>
+    <button data-pan="0"  data-tilt="-1">↓</button>
+    <button data-pan="1"  data-tilt="-1">↘</button>
+  </div>
+
+  <div class="status"><span id="dot" class="dot"></span><span id="msg">connecting…</span></div>
+
+<script>
+const spd = document.getElementById('spd'), spdv = document.getElementById('spdv');
+spd.oninput = () => spdv.textContent = spd.value;
+
+async function vel(pan, tilt){
+  try{ await fetch('/api/vel', {method:'POST', headers:{'Content-Type':'application/json'},
+       body: JSON.stringify({pan, tilt})}); }catch(e){}
+}
+const stop = () => vel(0,0);
+
+// press-and-hold on each direction button
+document.querySelectorAll('.pad button').forEach(b => {
+  if (b.hasAttribute('data-stop')){ b.addEventListener('pointerdown', stop); return; }
+  const px = +b.dataset.pan, ty = +b.dataset.tilt;
+  const go = e => { e.preventDefault(); b.classList.add('on');
+                    const s = +spd.value; vel(px*s, ty*s); };
+  const end = () => { b.classList.remove('on'); stop(); };
+  b.addEventListener('pointerdown', go);
+  b.addEventListener('pointerup', end);
+  b.addEventListener('pointerleave', end);
+  b.addEventListener('pointercancel', end);
+});
+
+// arrow-key control
+const keys = {ArrowUp:[0,1], ArrowDown:[0,-1], ArrowLeft:[-1,0], ArrowRight:[1,0]};
+const held = new Set();
+function applyKeys(){
+  let pan=0, tilt=0;
+  held.forEach(k => { pan += keys[k][0]; tilt += keys[k][1]; });
+  const s = +spd.value;
+  if (pan||tilt) vel(Math.max(-1,Math.min(1,pan))*s, Math.max(-1,Math.min(1,tilt))*s);
+  else stop();
+}
+addEventListener('keydown', e => { if(keys[e.key]){ e.preventDefault(); held.add(e.key); applyKeys(); }});
+addEventListener('keyup',   e => { if(keys[e.key]){ held.delete(e.key); applyKeys(); }});
+addEventListener('blur', stop);
+
+// connection status poll
+setInterval(async () => {
+  try{ const s = await (await fetch('/api/status')).json();
+       document.getElementById('dot').classList.toggle('ok', s.connected);
+       document.getElementById('msg').textContent =
+         s.connected ? `gimbal connected — pan ${s.pan}, tilt ${s.tilt}` : 'gimbal disconnected';
+  }catch(e){ document.getElementById('msg').textContent = 'server unreachable'; }
+}, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[Unit]
+Description=Akaso + WG2X gimbal web control bridge
+After=network-online.target bluetooth.target
+Wants=network-online.target bluetooth.target
+
+[Service]
+Type=simple
+User=overlord6920
+WorkingDirectory=/home/overlord6920/feiyu-gimbal
+ExecStart=/home/overlord6920/feiyu-gimbal/.venv/bin/python /home/overlord6920/feiyu-gimbal/server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

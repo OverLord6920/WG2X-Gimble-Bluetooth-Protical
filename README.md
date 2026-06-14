@@ -35,6 +35,24 @@ python3 -m venv .venv && ./.venv/bin/pip install bleak
 > connect hangs until supervision timeout — clear it with:
 > `bluetoothctl disconnect 24:0A:C4:9B:61:EE`
 
+## Web control (camera feed + gimbal D-pad)
+`server.py` is an HTTP→BLE bridge: it holds one persistent BLE connection,
+streams the current velocity at 20 Hz, and serves `web/control.html` — the
+MediaMTX WebRTC camera feed with a press-and-hold D-pad (+ arrow keys, speed
+slider). Browsers can't do BLE, so all gimbal traffic goes through this bridge.
+
+```bash
+./.venv/bin/pip install aiohttp bleak
+./.venv/bin/python server.py          # then open http://10.0.0.7:8095/
+```
+Endpoints: `POST /api/vel {pan,tilt}` · `POST /api/stop` · `GET /api/status`.
+
+Run on boot:
+```bash
+sudo cp akaso-gimbal.service /etc/systemd/system/
+sudo systemctl enable --now akaso-gimbal
+```
+
 ## The DIY dongle (`dongle-fw/`)
 The home server has no Bluetooth radio, so a **Seeed XIAO nRF52840** is flashed
 with Zephyr's `hci_usb` sample to become a standard USB BT controller (`hci0`).
