@@ -101,12 +101,16 @@ Edit the `rpiCamera*` values in `rpi/mediamtx.yml`, then
 encoder alone — the Zero 2 W's single-chip 2.4 GHz wifi (shared with the BT
 gimbal link) is the real bottleneck above ~9 Mbps.
 
-### Full 4056×3040 stills
-The camera can only be opened by one process, so a full-res photo briefly
-takes over from the stream:
-```bash
-rpi/snapshot.sh                 # ~2-3s gap in the live feed, then a 12 MP jpg
-```
+### Capture (buttons on both the kiosk and the control page)
+- **📷 Photo (1080p)** → `POST /api/photo`: grabs a frame from the *live stream*
+  via ffmpeg. Instant, **no interruption**. Good default.
+- **🖼️ Snapshot (12 MP)** → `POST /api/snapshot`: full **4056×3040** via
+  `rpicam-still`. The camera is single-access, so it briefly stops MediaMTX
+  (~2-3 s feed pause) then resumes. Needs the NOPASSWD sudoers entry that
+  `install.sh` adds (`systemctl stop/start mediamtx`).
+
+Both save into `web/photos/` and return a viewable URL. Command-line equivalent
+for full-res: `rpi/snapshot.sh [out.jpg]`.
 
 ## 5. Tuning
 - **Upside-down mount:** set `rpiCameraVFlip: true` (and/or `HFlip`) in

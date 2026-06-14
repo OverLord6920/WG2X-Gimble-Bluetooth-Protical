@@ -20,6 +20,15 @@
   .status{font-size:.8rem;opacity:.7;padding:.6em}
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#c33;margin-right:5px}
   .dot.ok{background:#3c3}
+  .caps{display:flex;gap:10px;justify-content:center;margin:12px auto}
+  .caps button{font-size:1rem;padding:10px 16px;border:0;border-radius:12px;
+       background:#1c1d22;color:#eee;cursor:pointer}
+  .caps button:active{background:var(--accent)}
+  .caps button:disabled{opacity:.5}
+  .caps small{opacity:.7}
+  #shot{max-width:90%;margin:0 auto}
+  #shot img{max-width:100%;border-radius:8px;margin-top:8px}
+  #shot a{color:#6cf;font-size:.8rem}
 </style>
 </head>
 <body>
@@ -47,6 +56,12 @@
     <button data-pan="0"  data-tilt="-1">↓</button>
     <button data-pan="1"  data-tilt="-1">↘</button>
   </div>
+
+  <div class="caps">
+    <button id="photo">📷 Photo <small>1080p</small></button>
+    <button id="snap">🖼️ Snapshot <small>12MP</small></button>
+  </div>
+  <div id="shot"></div>
 
   <div class="status"><span id="dot" class="dot"></span><span id="msg">connecting…</span></div>
 
@@ -91,6 +106,22 @@ function applyKeys(){
 addEventListener('keydown', e => { if(keys[e.key]){ e.preventDefault(); held.add(e.key); applyKeys(); }});
 addEventListener('keyup',   e => { if(keys[e.key]){ held.delete(e.key); applyKeys(); }});
 addEventListener('blur', stop);
+
+// capture buttons
+const shot = document.getElementById('shot');
+async function capture(endpoint, btn, label){
+  btn.disabled = true; const orig = btn.innerHTML;
+  btn.textContent = label==='snap' ? 'capturing 12MP…' : 'capturing…';
+  try{
+    const r = await (await fetch('/api/'+endpoint, {method:'POST'})).json();
+    if(r.ok) shot.innerHTML =
+      `<a href="${r.url}" target="_blank">${r.name}</a><br><img src="${r.url}">`;
+    else shot.textContent = 'capture failed: ' + (r.error||'?');
+  }catch(e){ shot.textContent = 'capture error'; }
+  btn.disabled = false; btn.innerHTML = orig;
+}
+document.getElementById('photo').onclick = e => capture('photo', e.currentTarget, 'photo');
+document.getElementById('snap').onclick  = e => capture('snapshot', e.currentTarget, 'snap');
 
 // connection status poll
 setInterval(async () => {

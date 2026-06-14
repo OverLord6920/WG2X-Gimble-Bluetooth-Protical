@@ -32,6 +32,22 @@
   #hud .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
             background:#c33;margin-right:5px}
   #hud .dot.ok{background:#3c3}
+
+  /* capture buttons (bottom-right stack) */
+  #caps{position:fixed;right:14px;bottom:14px;display:flex;flex-direction:column;gap:10px}
+  .cap{width:96px;height:60px;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;font-size:1.5rem;background:rgba(20,22,28,.5);
+       border-radius:16px;backdrop-filter:blur(2px);touch-action:none}
+  .cap small{font-size:.6rem;opacity:.85;margin-top:2px}
+  .cap:active{background:rgba(45,140,255,.85)}
+  .cap.busy{opacity:.5}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;
+         transition:opacity .06s}
+  #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);
+         background:rgba(0,0,0,.82);padding:8px 14px;border-radius:10px;
+         opacity:0;transition:opacity .2s;pointer-events:none;max-width:70%;
+         text-align:center;font-size:.85rem}
+  #toast img{max-height:130px;display:block;margin:6px auto 0;border-radius:6px}
 </style>
 </head>
 <body>
@@ -45,6 +61,13 @@
 
   <div id="stick"></div>
   <div id="hud"><span class="dot" id="dot"></span><span id="msg">…</span></div>
+
+  <div id="caps">
+    <div class="cap" id="photo">📷<small>Photo 1080p</small></div>
+    <div class="cap" id="snap">🖼️<small>Snap 12MP</small></div>
+  </div>
+  <div id="flash"></div>
+  <div id="toast"></div>
 
 <script>
 // --- config ---
@@ -103,6 +126,28 @@ for(const id in arrows){
   el.addEventListener('pointercancel',end);
   el.addEventListener('pointerleave',end);
 }
+
+// --- capture buttons ---
+const flash=document.getElementById('flash'), toast=document.getElementById('toast');
+function doFlash(){ flash.style.opacity=.9; setTimeout(()=>flash.style.opacity=0,70); }
+function showToast(html, ms=2600){
+  toast.innerHTML=html; toast.style.opacity=1;
+  clearTimeout(showToast._t); showToast._t=setTimeout(()=>toast.style.opacity=0,ms);
+}
+async function capture(endpoint, btn, label){
+  if(btn.classList.contains('busy')) return;
+  btn.classList.add('busy'); doFlash();
+  showToast(label==='snap' ? 'capturing 12MP… (feed pauses)' : 'capturing…', 6000);
+  try{
+    const r=await (await fetch('/api/'+endpoint,{method:'POST'})).json();
+    if(r.ok) showToast(`saved ${r.name}<br><img src="${r.url}">`);
+    else showToast('capture failed: '+(r.error||'?'));
+  }catch(e){ showToast('capture error'); }
+  btn.classList.remove('busy');
+}
+const pBtn=document.getElementById('photo'), sBtn=document.getElementById('snap');
+pBtn.addEventListener('click', ()=>capture('photo', pBtn, 'photo'));
+sBtn.addEventListener('click', ()=>capture('snapshot', sBtn, 'snap'));
 
 // --- status ---
 setInterval(async()=>{

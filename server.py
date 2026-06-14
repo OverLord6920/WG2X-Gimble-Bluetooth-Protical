@@ -9,6 +9,7 @@ Run:  ./.venv/bin/python server.py    then open http://10.0.0.7:8095/
 
 import asyncio
 import pathlib
+import time
 
 from aiohttp import web
 from bleak import BleakClient
@@ -19,6 +20,8 @@ ADDRESS = "24:0A:C4:9B:61:EE"          # FY_WG2X
 HTTP_PORT = 8095
 STREAM_HZ = 20
 WEB_DIR = pathlib.Path(__file__).parent / "web"
+PHOTO_DIR = WEB_DIR / "photos"
+RTSP_LOCAL = "rtsp://localhost:8554/cam"   # MediaMTX live path
 
 # shared control state, updated by HTTP, consumed by the BLE loop
 state = {"pan": 0, "tilt": 0, "connected": False}
@@ -67,6 +70,52 @@ async def api_status(request):
     return web.json_response(state)
 
 
+async def api_photo(request):
+    """Grab a single frame from the live stream (instant, no feed interruption).
+    For the full 4056x3040 sensor capture use rpi/snapshot.sh instead."""
+    PHOTO_DIR.mkdir(exist_ok=True)
+    name = time.strftime("photo_%Y%m%d_%H%M%S.jpg")
+    out = PHOTO_DIR / name
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-rtsp_transport", "tcp", "-i", RTSP_LOCAL,
+            "-frames:v", "1", "-q:v", "2", str(out),
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+        await asyncio.wait_for(proc.wait(), timeout=10)
+    except FileNotFoundError:
+        return web.json_response({"ok": False, "error": "ffmpeg not installed"}, status=500)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return web.json_response({"ok": False, "error": "capture timed out"}, status=504)
+    if proc.returncode != 0 or not out.exists():
+        return web.json_response({"ok": False, "error": "capture failed"}, status=500)
+    return web.json_response({"ok": True, "url": f"/web/photos/{name}", "name": name})
+
+
+SNAPSHOT_SCRIPT = pathlib.Path(__file__).parent / "rpi" / "snapshot.sh"
+
+
+async def api_snapshot(request):
+    """Full 4056x3040 capture via rpi/snapshot.sh. Briefly stops MediaMTX
+    (camera is single-access), so the live feed pauses ~3s. Needs a NOPASSWD
+    sudoers entry for `systemctl stop/start mediamtx` (see rpi/README)."""
+    PHOTO_DIR.mkdir(exist_ok=True)
+    name = time.strftime("snap_%Y%m%d_%H%M%S.jpg")
+    out = PHOTO_DIR / name
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "bash", str(SNAPSHOT_SCRIPT), str(out),
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+        await asyncio.wait_for(proc.wait(), timeout=30)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return web.json_response({"ok": False, "error": "snapshot timed out"}, status=504)
+    if proc.returncode != 0 or not out.exists():
+        return web.json_response({"ok": False, "error": "snapshot failed (sudoers?)"}, status=500)
+    return web.json_response({"ok": True, "url": f"/web/photos/{name}", "name": name,
+                              "fullres": True})
+
+
 async def index(request):
     return web.FileResponse(WEB_DIR / "control.html")
 
@@ -91,6 +140,8 @@ def make_app():
         web.get("/api/vel", api_vel),
         web.post("/api/stop", api_stop),
         web.get("/api/status", api_status),
+        web.post("/api/photo", api_photo),
+        web.post("/api/snapshot", api_snapshot),
         web.static("/web", str(WEB_DIR)),
     ])
     app.on_startup.append(on_startup)

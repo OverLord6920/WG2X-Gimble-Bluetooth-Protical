@@ -8,7 +8,8 @@ echo ">> repo at $REPO"
 
 echo ">> [1/5] apt deps"
 sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip rpicam-apps bluez tar
+# ffmpeg = quick 1080p photo grabs from the live stream (/api/photo)
+sudo apt-get install -y python3-venv python3-pip rpicam-apps bluez tar ffmpeg
 
 echo ">> [2/5] MediaMTX (arch-matched release)"
 case "$(uname -m)" in
@@ -36,7 +37,12 @@ sed "s#/home/pi/feiyu-gimbal#${REPO}#g; s/^User=pi/User=$(whoami)/" \
 sudo systemctl daemon-reload
 sudo systemctl enable --now mediamtx gimbal-web
 
-echo ">> [5/5] done"
+echo ">> [5/6] sudoers for full-res snapshot (stop/start mediamtx, no password)"
+echo "$(whoami) ALL=(root) NOPASSWD: /usr/bin/systemctl stop mediamtx, /usr/bin/systemctl start mediamtx" \
+  | sudo tee /etc/sudoers.d/gimbal-snapshot >/dev/null
+sudo chmod 440 /etc/sudoers.d/gimbal-snapshot
+
+echo ">> [6/6] done"
 echo "   stream:  http://$(hostname -I | awk '{print $1}'):8889/cam"
 echo "   control: http://$(hostname -I | awk '{print $1}'):8095/"
 echo "   check:   systemctl status mediamtx gimbal-web --no-pager"
