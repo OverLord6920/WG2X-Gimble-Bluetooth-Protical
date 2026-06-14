@@ -1,20 +1,27 @@
-# Pi Zero 2 W deployment — IMX477 stream + WG2X gimbal control
+# Pi 4 deployment — IMX477 stream + WG2X gimbal control
 
-Self-contained replacement for the Akaso rig. One Raspberry Pi Zero 2 W does
-everything: captures the **Arducam IMX477** via CSI (hardware H.264), serves
-RTSP/HLS/WebRTC, talks BLE to the **WG2X gimbal over the Pi's onboard
-Bluetooth** (no XIAO dongle), and hosts the web control page.
+Self-contained replacement for the Akaso rig, on a **Raspberry Pi 4 (fixed
+base)**: captures the **Arducam IMX477** over a CSI flex cable to a camera head
+on the gimbal (hardware H.264), serves RTSP/HLS/WebRTC over **wired Gigabit
+Ethernet**, talks BLE to the **WG2X over the Pi's onboard Bluetooth**, and hosts
+the web control page. See `HARDWARE.md` for the physical build (enclosure,
+cable routing, payload, lens).
+
+> Pi Zero 2 W variant: see the **`rpi-zero2w`** branch (2.4 GHz wifi, mini-CSI,
+> AC1200 dongle notes). This branch targets the Pi 4 wired build.
 
 ```
- IMX477 (CSI) ──► libcamera ──► MediaMTX (rpiCamera, HW H.264)
-                                   ├─ RTSP   :8554/cam
-                                   ├─ HLS    :8888/cam
-                                   └─ WebRTC :8889/cam ──► browser
+ IMX477 (CSI flex) ──► libcamera ──► MediaMTX (rpiCamera, HW H.264)
+                                       ├─ RTSP   :8554/cam
+                                       ├─ HLS    :8888/cam
+                                       └─ WebRTC :8889/cam ──► browser (wired LAN)
  WG2X gimbal ◄── BLE (onboard hci0) ◄── server.py (HTTP :8095) ◄── D-pad
 ```
 
 ## 1. OS + camera
-- Flash **Raspberry Pi OS Bookworm (64-bit, Lite)**; enable SSH + your wifi.
+- Flash **Raspberry Pi OS Bookworm (64-bit, Lite)**; enable SSH. Use **wired
+  Ethernet** for the stream (no wifi/BT contention; the Pi 4 has separate
+  radios anyway, so onboard Bluetooth for the gimbal is unaffected).
 - The IMX477 needs its overlay. Edit `/boot/firmware/config.txt`:
   ```
   camera_auto_detect=0
@@ -29,13 +36,13 @@ Bluetooth** (no XIAO dongle), and hosts the web control page.
   light sensor — no software needed. (If yours is the GPIO-switched variant,
   it exposes a control pin; tell me and we'll add a small GPIO toggle service.)
 - **Onboard Bluetooth:** on by default. Confirm with `hciconfig` / `bluetoothctl list`.
-  Note the Zero 2 W shares one chip for wifi+BT; BLE control traffic is tiny so
-  it coexists fine with wifi streaming.
+  The Pi 4 has separate wifi/BT/Ethernet radios, so the gimbal BLE link never
+  competes with the (wired) video stream.
 
 ## 2. Install everything
 ```bash
 git clone https://github.com/OverLord6920/WG2X-Gimble-Bluetooth-Protical.git feiyu-gimbal
-cd feiyu-gimbal && git checkout rpi-zero2w
+cd feiyu-gimbal && git checkout rpi
 bash rpi/install.sh
 ```
 The script installs `rpicam-apps`, the arch-matched MediaMTX binary, a Python
