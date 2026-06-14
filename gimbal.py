@@ -65,6 +65,10 @@ async def move(pan, tilt, seconds="1.0"):
     stop  = p.build_move(0, 0)
     print(f"move pan={pan} tilt={tilt} for {seconds}s: {frame.hex(' ')}")
     async with BleakClient(ADDRESS) as c:
+        for f in p.INIT_FRAMES:                # arm manual control first
+            await c.write_gatt_char(p.CHAR_WRITE, f, response=False)
+            await asyncio.sleep(0.08)
+        await asyncio.sleep(0.2)
         deadline = asyncio.get_event_loop().time() + seconds
         while asyncio.get_event_loop().time() < deadline:
             await c.write_gatt_char(p.CHAR_WRITE, frame, response=False)

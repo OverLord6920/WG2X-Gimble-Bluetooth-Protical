@@ -11,21 +11,37 @@ Reverse-engineered controller for the WG2X 3-axis gimbal over Bluetooth LE.
 - ✅ **Motion command decoded** (from HCI snoop, 46/46 frames CRC-valid):
       `A5 5A 00 11 05 | FF | pan(i16le) | tilt(i16le) | crc` — pan/tilt ∈ [-200,200],
       streamed ~20 Hz; `build_move()` reproduces the app's frames exactly
-- ⬜ **Host BT radio** — the home server has no Bluetooth; needs a USB BLE dongle
-      (this is now the ONLY thing between us and driving the gimbal from the server)
+- ✅ **Init/handshake decoded** — 4 frames sent on connect to arm manual control
+      (id 06 hello ×2, cmd10/id00, cmd04/id01 = arm); `INIT_FRAMES` in protocol.py
+- ✅ **DIY USB BLE dongle** — Seeed XIAO nRF52840 flashed with Zephyr `hci_usb`
+      shows up as `hci0` (see `dongle-fw/`)
+- ✅ **CONFIRMED WORKING** — gimbal physically pans/tilts under server control 🎉
 
 ## Files
 - `protocol.py` — frame build/parse, CRC16/XMODEM, telemetry decode (self-tests on run)
 - `gimbal.py`   — `bleak` BLE client: `scan` / `listen` / `send`
 
-## Run (once a BT dongle is attached + `pip install bleak`)
+## Run
 ```bash
-python3 gimbal.py scan              # confirm FY_WG2X is seen
-python3 gimbal.py listen           # live decoded telemetry
-python3 gimbal.py move 120 0 1.5   # pan right at speed 120 for 1.5s
-python3 gimbal.py move 0 -200 1    # tilt down full speed for 1s
-python3 gimbal.py send 03 <id> <hex>   # raw frame escape hatch
+python3 -m venv .venv && ./.venv/bin/pip install bleak
+./.venv/bin/python gimbal.py scan              # confirm FY_WG2X is seen
+./.venv/bin/python gimbal.py listen            # live decoded telemetry
+./.venv/bin/python gimbal.py move 120 0 1.5    # pan right at speed 120 for 1.5s
+./.venv/bin/python gimbal.py move 0 -200 1     # tilt down full speed for 1s
+./.venv/bin/python gimbal.py send 03 <id> <hex>   # raw frame escape hatch
 ```
+
+> BLE allows one central at a time. If a run is killed mid-connect, the next
+> connect hangs until supervision timeout — clear it with:
+> `bluetoothctl disconnect 24:0A:C4:9B:61:EE`
+
+## The DIY dongle (`dongle-fw/`)
+The home server has no Bluetooth radio, so a **Seeed XIAO nRF52840** is flashed
+with Zephyr's `hci_usb` sample to become a standard USB BT controller (`hci0`).
+- `dongle-fw/build.sh` — builds the firmware in the official Zephyr Docker image
+- `dongle-fw/out/hci_usb_xiao_ble.uf2` — prebuilt firmware (drag onto the
+  `XIAO-BLE` UF2 drive after double-tapping reset)
+- Enumerates as `2fe3:000b NordicSemiconductor Zephyr USBD BT HCI`
 
 ## Other command ids (provisional, seen in capture)
 - `cmd=02 id=0e len=1` — button/mode codes (0x07..0x12)

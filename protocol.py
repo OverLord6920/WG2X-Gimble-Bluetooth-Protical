@@ -37,6 +37,16 @@ ID_MOVE      = 0x11   # host -> gimbal joystick: payload FF|pan(i16le)|tilt(i16l
 
 MOVE_MIN, MOVE_MAX = -200, 200   # observed joystick range on both axes
 
+# Init/handshake the Feiyu ON app sends on connect, in order, before it will
+# accept joystick (0x11) commands. Captured verbatim from the HCI snoop log.
+# The 04/01/ff frame appears to arm manual control.
+INIT_FRAMES = [
+    bytes.fromhex("a55a000601 7f e90e".replace(" ", "")),  # id 06 hello
+    bytes.fromhex("a55a100001 00 9628".replace(" ", "")),  # cmd10 id00
+    bytes.fromhex("a55a000601 7f e90e".replace(" ", "")),  # id 06 hello (repeat)
+    bytes.fromhex("a55a040101 ff 00d0".replace(" ", "")),  # cmd04 id01 -> arm
+]
+
 
 def build_move(pan: int = 0, tilt: int = 0) -> bytes:
     """Joystick move frame. pan/tilt are velocities in [-200, 200].
