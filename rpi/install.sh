@@ -14,7 +14,7 @@ sudo apt-get install -y git python3-venv python3-pip rpicam-apps bluez tar ffmpe
 
 echo ">> [2/6] MediaMTX (arch-matched release)"
 case "$(uname -m)" in
-  aarch64) MARCH=arm64v8 ;;
+  aarch64) MARCH=arm64 ;;
   armv7l)  MARCH=armv7   ;;
   *) echo "unexpected arch $(uname -m)"; exit 1 ;;
 esac
