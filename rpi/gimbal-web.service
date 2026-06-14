@@ -1,0 +1,15 @@
+[Unit]
+Description=WG2X gimbal web control bridge (Pi)
+After=network-online.target bluetooth.target
+Wants=network-online.target bluetooth.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/feiyu-gimbal
+ExecStart=/home/pi/feiyu-gimbal/.venv/bin/python /home/pi/feiyu-gimbal/server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

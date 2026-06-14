@@ -1,0 +1,36 @@
+###############################################
+# MediaMTX on Raspberry Pi Zero 2 W
+# Captures the Arducam IMX477 directly via libcamera (hardware H.264
+# encode) and serves it as RTSP / RTMP / HLS / WebRTC. No external camera,
+# no wifi bridge — the Pi IS the camera.
+###############################################
+
+logLevel: info
+
+rtsp: yes
+rtspAddress: :8554
+rtmp: yes
+rtmpAddress: :1935
+hls: yes
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsAlwaysRemux: yes
+webrtc: yes
+webrtcAddress: :8889          # no searxng clash on the Pi -> default port
+
+paths:
+  cam:
+    # Native Pi camera source: libcamera + the Pi hardware H.264 encoder.
+    source: rpiCamera
+    rpiCameraCamID: 0
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
+    rpiCameraFPS: 30
+    rpiCameraBitrate: 3000000
+    # H.264 baseline so browsers can decode the WebRTC/HLS feed directly:
+    rpiCameraProfile: baseline
+    rpiCameraLevel: '4.0'
+    rpiCameraIDRPeriod: 30
+    # Flip here if the camera is mounted upside down (set both true = 180):
+    rpiCameraHFlip: false
+    rpiCameraVFlip: false

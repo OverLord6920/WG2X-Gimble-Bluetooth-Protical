@@ -1,0 +1,15 @@
+[Unit]
+Description=MediaMTX (IMX477 camera stream)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mediamtx /home/pi/feiyu-gimbal/rpi/mediamtx.yml
+Restart=always
+RestartSec=3
+# libcamera needs access to the GPU/video devices:
+SupplementaryGroups=video render
+
+[Install]
+WantedBy=multi-user.target

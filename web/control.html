@@ -8,8 +8,7 @@
   :root { --accent:#2d8cff; }
   body{margin:0;background:#0d0d0f;color:#eee;font-family:system-ui,sans-serif;text-align:center}
   h1{font-weight:500;padding:.5em;margin:0;font-size:1.1rem}
-  .feed{width:100%;max-width:900px;aspect-ratio:16/9;border:0;background:#000;margin:auto;display:block;
-        transform:rotate(180deg)}  /* camera is mounted upside down */
+  .feed{width:100%;max-width:900px;aspect-ratio:16/9;border:0;background:#000;margin:auto;display:block}
   .pad{display:grid;grid-template-columns:repeat(3,72px);grid-template-rows:repeat(3,72px);
        gap:8px;justify-content:center;margin:18px auto}
   .pad button{font-size:1.6rem;border:0;border-radius:14px;background:#1c1d22;color:#eee;
@@ -26,8 +25,9 @@
 <body>
   <h1>Akaso Live + Gimbal Control</h1>
 
-  <!-- MediaMTX WebRTC reader (low latency). Swap to :8888/web for HLS. -->
-  <iframe class="feed" src="http://10.0.0.7:8899/web" allow="autoplay"></iframe>
+  <!-- MediaMTX WebRTC reader (low latency). Host is auto-detected so the
+       same page works on the Pi or the server; flip is done at the source. -->
+  <iframe id="feed" class="feed" allow="autoplay"></iframe>
 
   <div class="speed">
     <span>Speed</span>
@@ -51,6 +51,11 @@
   <div class="status"><span id="dot" class="dot"></span><span id="msg">connecting…</span></div>
 
 <script>
+// Point the feed at whatever host serves this page (Pi or server).
+const STREAM_PORT = 8889, STREAM_PATH = 'cam';
+document.getElementById('feed').src =
+  `${location.protocol}//${location.hostname}:${STREAM_PORT}/${STREAM_PATH}`;
+
 const spd = document.getElementById('spd'), spdv = document.getElementById('spdv');
 spd.oninput = () => spdv.textContent = spd.value;
 
